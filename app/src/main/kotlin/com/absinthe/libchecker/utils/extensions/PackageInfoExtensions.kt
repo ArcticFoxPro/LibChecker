@@ -322,7 +322,14 @@ fun PackageInfo.isOverlay(): Boolean {
 fun PackageInfo.getFeatures(): Int {
   var features = 0
   val sourceDir = applicationInfo?.sourceDir ?: return 0
-  val resultList = PackageUtils.findDexClasses(
+  val manifestFairMemory = runCatching {
+    IntentFilterUtils.parseComponentsFromApk(sourceDir).any { component ->
+      component.type == RECEIVER && component.intentFilters.any { filter ->
+        filter.actions.any { it in ITGSA_ACTIONS }
+      }
+    }
+  }.getOrDefault(false)
+  val scanResult = PackageUtils.scanDexForFeatures(
     File(sourceDir),
     listOf(
       "androidx.compose.*".toClassDefType(),
@@ -337,8 +344,11 @@ fun PackageInfo.getFeatures(): Int {
       "rx.android.*".toClassDefType(),
       "com.voip.service.*".toClassDefType(),
       "com.os.widget.SecurityPasteView".toClassDefType()
-    )
+    ),
+    manifestFairMemoryDetected = manifestFairMemory
   )
+  val resultList = scanResult.foundClasses
+
   if (isSplitsApk()) {
     features = features or Features.SPLIT_APKS
   }
@@ -374,6 +384,9 @@ fun PackageInfo.getFeatures(): Int {
   }
   if (isUseSecurityPasteView(resultList)) {
     features = features or Features.ITGSA_SEC_PASTE or Features.ITGSA
+  }
+  if (scanResult.isUseFairMemoryMechanism) {
+    features = features or Features.ITGSA_FAIR_MEMORY or Features.ITGSA
   }
 
   return features

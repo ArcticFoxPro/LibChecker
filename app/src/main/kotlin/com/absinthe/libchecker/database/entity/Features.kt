@@ -16,6 +16,7 @@ object Features {
   const val ITGSA = 1 shl 12
   const val ITGSA_VOIP = 1 shl 13
   const val ITGSA_SEC_PASTE = 1 shl 14
+  const val ITGSA_FAIR_MEMORY = 1 shl 15
 
   object Ext {
     const val APPLICATION_PROP = -1 shl 0

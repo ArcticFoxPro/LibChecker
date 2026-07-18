@@ -1052,14 +1052,12 @@ object PackageUtils {
    * Scan DEX for class patterns and ITGSA Fair Memory bytecode
    * @param sourceFile Source APK/DEX file
    * @param classes Class patterns to match
-   * @param hasAny true if matching any class pattern is enough
    * @param manifestFairMemoryDetected pre-computed manifest check result; when true DEX bytecode analysis for fair memory is skipped
    * @return DexScanResult with matched classes and fair memory bytecode flag
    */
   fun scanDexForFeatures(
     sourceFile: File,
     classes: List<String>,
-    hasAny: Boolean = false,
     manifestFairMemoryDetected: Boolean = false
   ): DexScanResult {
     val matched = mutableSetOf<String>()
@@ -1082,7 +1080,7 @@ object PackageUtils {
             if (!allFound) {
               matchClassPattern(classDef.type, classes, matched)?.let { pattern ->
                 matched += pattern
-                if ((matched.size == classes.size || hasAny) && fairMemoryBytecode) {
+                if (matched.size == classes.size && fairMemoryBytecode) {
                   return@runCatching DexScanResult(matched.toList(), true)
                 }
               }
