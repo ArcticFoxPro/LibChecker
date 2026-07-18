@@ -64,7 +64,6 @@ import com.absinthe.libchecker.utils.extensions.ABI_STRING_MAP
 import com.absinthe.libchecker.utils.extensions.ABI_STRING_RES_MAP
 import com.absinthe.libchecker.utils.extensions.ABI_VALUE_TO_INSTRUCTION_SET_MAP
 import com.absinthe.libchecker.utils.extensions.INSTRUCTION_SET_MAP_TO_ABI_VALUE
-import com.absinthe.libchecker.utils.extensions.PAGE_SIZE_16_KB
 import com.absinthe.libchecker.utils.extensions.STRING_ABI_MAP
 import com.absinthe.libchecker.utils.extensions.getCompileSdkVersion
 import com.absinthe.libchecker.utils.extensions.getPermissionsList
@@ -83,7 +82,6 @@ import com.absinthe.libchecker.utils.extensions.toHexString
 import com.absinthe.libchecker.utils.manifest.StaticLibraryReader
 import com.absinthe.libraries.utils.manager.TimeRecorder
 import com.android.tools.smali.dexlib2.Opcodes
-import com.android.tools.smali.dexlib2.ReferenceType
 import com.android.tools.smali.dexlib2.dexbacked.DexBackedDexFile
 import com.android.tools.smali.dexlib2.iface.ClassDef
 import com.android.tools.smali.dexlib2.iface.instruction.ReferenceInstruction
@@ -1035,14 +1033,19 @@ object PackageUtils {
     }
   }
 
-  private val ITGSA_ACTIONS = setOf("itgsa.intent.action.TRIM", "itgsa.intent.action.KILL")
+  val ITGSA_ACTIONS = setOf("itgsa.intent.action.TRIM", "itgsa.intent.action.KILL")
   private val INTENT_FILTER_TYPE = "Landroid/content/IntentFilter;"
   private val ADD_ACTION_NAME = "addAction"
   private val INIT_NAME = "<init>"
 
   data class DexScanResult(
     val foundClasses: List<String>,
-    val hasItgsaFairMemoryBytecode: Boolean
+
+    /**
+     * Check if an app uses ITGSA Fair Runtime Memory Mechanism
+     * https://developer.honor.com/cn/docs/adaptation_guide/guides/fair_memory_scheduling
+     */
+    val isUseFairMemoryMechanism: Boolean
   )
 
   /**
@@ -1050,15 +1053,17 @@ object PackageUtils {
    * @param sourceFile Source APK/DEX file
    * @param classes Class patterns to match
    * @param hasAny true if matching any class pattern is enough
+   * @param manifestFairMemoryDetected pre-computed manifest check result; when true DEX bytecode analysis for fair memory is skipped
    * @return DexScanResult with matched classes and fair memory bytecode flag
    */
   fun scanDexForFeatures(
     sourceFile: File,
     classes: List<String>,
-    hasAny: Boolean = false
+    hasAny: Boolean = false,
+    manifestFairMemoryDetected: Boolean = false
   ): DexScanResult {
     val matched = mutableSetOf<String>()
-    var fairMemoryBytecode = false
+    var fairMemoryBytecode = manifestFairMemoryDetected
     return runCatching {
       FastDexFileFactory.loadDexContainer(sourceFile, Opcodes.getDefault()).apply {
         for (entry in dexEntryNames) {

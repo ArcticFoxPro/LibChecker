@@ -4,8 +4,10 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.AdaptiveIconDrawable
+import android.util.Log
 import androidx.annotation.StringRes
 import com.absinthe.libchecker.R
+import com.absinthe.libchecker.annotation.RECEIVER
 import com.absinthe.libchecker.app.SystemServices
 import com.absinthe.libchecker.compat.PackageManagerCompat
 import com.absinthe.libchecker.compat.ZipFileCompat
@@ -15,8 +17,10 @@ import com.absinthe.libchecker.domain.app.detail.model.KotlinToolingMetadata
 import com.absinthe.libchecker.domain.app.model.VersionedFeature
 import com.absinthe.libchecker.domain.app.repository.AppListRepository
 import com.absinthe.libchecker.domain.app.repository.InstalledAppRepository
+import com.absinthe.libchecker.utils.IntentFilterUtils
 import com.absinthe.libchecker.utils.OsUtils
 import com.absinthe.libchecker.utils.PackageUtils
+import com.absinthe.libchecker.utils.PackageUtils.ITGSA_ACTIONS
 import com.absinthe.libchecker.utils.extensions.getFeatures
 import com.absinthe.libchecker.utils.extensions.getRxAndroidVersion
 import com.absinthe.libchecker.utils.extensions.getRxJavaVersion
@@ -24,10 +28,7 @@ import com.absinthe.libchecker.utils.extensions.getRxKotlinVersion
 import com.absinthe.libchecker.utils.extensions.isPWA
 import com.absinthe.libchecker.utils.extensions.isPageSizeCompat
 import com.absinthe.libchecker.utils.extensions.isPlayAppSigning
-import com.absinthe.libchecker.utils.extensions.isUseFairMemoryMechanism
 import com.absinthe.libchecker.utils.extensions.isUseKMP
-import com.absinthe.libchecker.utils.extensions.isUseSecurityPasteView
-import com.absinthe.libchecker.utils.extensions.isUseVoipServiceKit
 import com.absinthe.libchecker.utils.extensions.toClassDefType
 import com.absinthe.libchecker.utils.fromJson
 import java.io.File
@@ -106,7 +107,14 @@ class GetAppDetailFeaturesUseCase(
     }
 
     packageInfo.applicationInfo?.sourceDir?.let { sourceDir ->
-      val scanResult = getFeaturesFoundDexList(feat, sourceDir)
+      val manifestFairMemory = runCatching {
+        IntentFilterUtils.parseComponentsFromApk(sourceDir).any { component ->
+          component.type == RECEIVER && component.intentFilters.any { filter ->
+            filter.actions.any { it in ITGSA_ACTIONS }
+          }
+        }
+      }.getOrDefault(false)
+      val scanResult = getFeaturesFoundDexList(feat, sourceDir, manifestFairMemory)
       val foundList = scanResult.foundClasses
 
       if ((feat and Features.RX_JAVA) > 0) {
@@ -125,15 +133,9 @@ class GetAppDetailFeaturesUseCase(
         emitFeature(VersionedFeature(Features.KMP))
       }
       val itgsaCapabilities = buildList {
-        if (packageInfo.isUseVoipServiceKit(foundList)) {
-          add(ItgsaCapability.VOIP_SERVICE_KIT.key)
-        }
-        if (packageInfo.isUseFairMemoryMechanism(scanResult.hasItgsaFairMemoryBytecode)) {
-          add(ItgsaCapability.FAIR_MEMORY_MECHANISM.key)
-        }
-        if (packageInfo.isUseSecurityPasteView(foundList)) {
-          add(ItgsaCapability.SECURITY_PASTE_VIEW.key)
-        }
+        if ((feat and Features.ITGSA_VOIP) > 0) add(ItgsaCapability.VOIP_SERVICE_KIT.key)
+        if (scanResult.isUseFairMemoryMechanism) add(ItgsaCapability.FAIR_MEMORY_MECHANISM.key)
+        if ((feat and Features.ITGSA_SEC_PASTE) > 0) add(ItgsaCapability.SECURITY_PASTE_VIEW.key)
       }
       if (itgsaCapabilities.isNotEmpty()) {
         emitFeature(
@@ -272,7 +274,11 @@ class GetAppDetailFeaturesUseCase(
     return metaData.getBoolean("xposedmodule") || metaData.containsKey("xposedminversion")
   }
 
-  private fun getFeaturesFoundDexList(feat: Int, sourceDir: String): PackageUtils.DexScanResult {
+  private fun getFeaturesFoundDexList(
+    feat: Int,
+    sourceDir: String,
+    manifestFairMemory: Boolean
+  ): PackageUtils.DexScanResult {
     val dexList = mutableListOf<String>()
     if ((feat and Features.RX_JAVA) > 0) {
       dexList.addAll(
@@ -301,12 +307,20 @@ class GetAppDetailFeaturesUseCase(
         )
       )
     }
+    if ((feat and Features.ITGSA_VOIP) > 0) {
+      dexList.add("com.voip.service.*".toClassDefType())
+    }
+    if ((feat and Features.ITGSA_SEC_PASTE) > 0) {
+      dexList.add("com.os.widget.SecurityPasteView".toClassDefType())
+    }
     if (dexList.isNotEmpty()) {
       dexList.add("org.jetbrains.compose.*".toClassDefType())
     }
-    dexList.add("com.voip.service.*".toClassDefType())
-    dexList.add("com.os.widget.SecurityPasteView".toClassDefType())
-    return PackageUtils.scanDexForFeatures(File(sourceDir), dexList)
+    return PackageUtils.scanDexForFeatures(
+      File(sourceDir),
+      dexList,
+      manifestFairMemoryDetected = manifestFairMemory
+    )
   }
 
   private fun getAllAppIcons(packageInfo: PackageInfo): List<AppIconItem> {

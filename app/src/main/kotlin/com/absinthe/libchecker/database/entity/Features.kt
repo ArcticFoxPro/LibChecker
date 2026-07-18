@@ -14,6 +14,8 @@ object Features {
   const val KMP = 1 shl 10
   const val LIVE_UPDATE_NOTIFICATION = 1 shl 11
   const val ITGSA = 1 shl 12
+  const val ITGSA_VOIP = 1 shl 13
+  const val ITGSA_SEC_PASTE = 1 shl 14
 
   object Ext {
     const val APPLICATION_PROP = -1 shl 0

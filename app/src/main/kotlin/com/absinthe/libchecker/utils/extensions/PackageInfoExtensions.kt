@@ -7,6 +7,7 @@ import android.content.pm.PackageInfoHidden
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.os.Build
+import android.util.Log
 import androidx.collection.arrayMapOf
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.text.isDigitsOnly
@@ -46,6 +47,7 @@ import com.absinthe.libchecker.utils.FileUtils
 import com.absinthe.libchecker.utils.IntentFilterUtils
 import com.absinthe.libchecker.utils.OsUtils
 import com.absinthe.libchecker.utils.PackageUtils
+import com.absinthe.libchecker.utils.PackageUtils.ITGSA_ACTIONS
 import com.absinthe.libchecker.utils.ShizukuManager
 import com.absinthe.libchecker.utils.apk.ApkSignatureSchemeDetector
 import com.absinthe.libchecker.utils.fromJson
@@ -332,7 +334,9 @@ fun PackageInfo.getFeatures(): Int {
       "rx.lang.kotlin".toClassDefType(),
       "io.reactivex.rxjava3.android.*".toClassDefType(),
       "io.reactivex.android.*".toClassDefType(),
-      "rx.android.*".toClassDefType()
+      "rx.android.*".toClassDefType(),
+      "com.voip.service.*".toClassDefType(),
+      "com.os.widget.SecurityPasteView".toClassDefType()
     )
   )
   if (isSplitsApk()) {
@@ -364,6 +368,12 @@ fun PackageInfo.getFeatures(): Int {
   }
   if (isRxAndroidUsed(resultList)) {
     features = features or Features.RX_ANDROID
+  }
+  if (isUseVoipServiceKit(resultList)) {
+    features = features or Features.ITGSA_VOIP or Features.ITGSA
+  }
+  if (isUseSecurityPasteView(resultList)) {
+    features = features or Features.ITGSA_SEC_PASTE or Features.ITGSA
   }
 
   return features
@@ -978,26 +988,6 @@ fun PackageInfo.isUseVoipServiceKit(foundList: List<String>? = null): Boolean {
   )
   val foundInDex = realFoundList.contains("com.voip.service.*".toClassDefType())
   return foundInDex
-}
-
-/**
- * Check if an app uses ITGSA Fair Runtime Memory Mechanism
- * @param bytecodeDetected Pre-computed bytecode analysis result from scanDexForFeatures
- * @return True if using Fair Runtime Memory Mechanism
- * https://developer.honor.com/cn/docs/adaptation_guide/guides/fair_memory_scheduling
- */
-fun PackageInfo.isUseFairMemoryMechanism(bytecodeDetected: Boolean = false): Boolean {
-  if (bytecodeDetected) return true
-
-  val sourceDir = applicationInfo?.sourceDir ?: return false
-  val result = runCatching {
-    IntentFilterUtils.parseComponentsFromApk(sourceDir).any { component ->
-      component.type == RECEIVER && component.intentFilters.any { filter ->
-        filter.actions.any { it in listOf("itgsa.intent.action.TRIM", "itgsa.intent.action.KILL") }
-      }
-    }
-  }.getOrDefault(false)
-  return result
 }
 
 /**
