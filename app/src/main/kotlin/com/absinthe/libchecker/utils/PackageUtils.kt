@@ -1063,18 +1063,23 @@ object PackageUtils {
       FastDexFileFactory.loadDexContainer(sourceFile, Opcodes.getDefault()).apply {
         for (entry in dexEntryNames) {
           val allFound = matched.size == classes.size
-          if (allFound && fairMemoryBytecode) return@runCatching DexScanResult(
-            matched.toList(), true
-          )
+          if (allFound && fairMemoryBytecode) {
+            return@runCatching DexScanResult(
+              matched.toList(),
+              true
+            )
+          }
           val dex = getEntry(entry)?.dexFile ?: continue
           val needScan = !fairMemoryBytecode && hasItgsaStringReferences(dex)
           if (allFound && !needScan) continue
 
           for (classDef in dex.classes) {
-            if (!allFound) matchClassPattern(classDef.type, classes, matched)?.let { pattern ->
-              matched += pattern
-              if ((matched.size == classes.size || hasAny) && fairMemoryBytecode) {
-                return@runCatching DexScanResult(matched.toList(), true)
+            if (!allFound) {
+              matchClassPattern(classDef.type, classes, matched)?.let { pattern ->
+                matched += pattern
+                if ((matched.size == classes.size || hasAny) && fairMemoryBytecode) {
+                  return@runCatching DexScanResult(matched.toList(), true)
+                }
               }
             }
             if (needScan && !fairMemoryBytecode) fairMemoryBytecode = classDef.hasItgsaIntentFilterUsage()
@@ -1090,9 +1095,13 @@ object PackageUtils {
     classes: List<String>,
     matched: Set<String>
   ): String? = classes.firstOrNull { pattern ->
-    pattern !in matched && (if (pattern.last() == '*') {
-      classType.startsWith(pattern.removeSuffix("*"))
-    } else classType == pattern)
+    pattern !in matched && (
+      if (pattern.last() == '*') {
+        classType.startsWith(pattern.removeSuffix("*"))
+      } else {
+        classType == pattern
+      }
+      )
   }
 
   /**
