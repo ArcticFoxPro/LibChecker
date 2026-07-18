@@ -46,6 +46,8 @@ class DetailFeatureController(
 
   fun onItemClick(item: FeatureItem) {
     when (val action = item.action) {
+      is AppDetailFeatureAction.Itgsa -> FeaturesDialog.showItgsaDialog(activity, action.capabilities)
+
       is AppDetailFeatureAction.Dialog -> FeaturesDialog.show(activity, action.toDialogSpec())
 
       AppDetailFeatureAction.SplitApks -> FeaturesDialog.showSplitApksDialog(activity, packageInfo())

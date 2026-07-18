@@ -79,6 +79,18 @@ class BuildAppDetailFeatureItemUseCase {
         action = AppDetailFeatureAction.Kmp(feature.version)
       )
 
+      Features.ITGSA -> {
+        val capabilities = feature.extras?.get("itgsa_capabilities")
+          ?.split(",")
+          ?.mapNotNull { ItgsaCapability.fromKey(it)?.titleRes }
+          ?: emptyList()
+        AppDetailFeatureItemData(
+          icon = resourceIcon(R.drawable.ic_itgsa),
+          titleRes = R.string.itgsa,
+          action = AppDetailFeatureAction.Itgsa(capabilities)
+        )
+      }
+
       Features.LIVE_UPDATE_NOTIFICATION -> AppDetailFeatureItemData(
         icon = resourceIcon(R.drawable.ic_feature_live_update),
         titleRes = R.string.feature_live_update_notification,
@@ -191,6 +203,7 @@ sealed interface AppDetailFeatureAction {
   data object Pwa : Dialog
   data class JetpackCompose(val version: String?) : Dialog
   data class Kmp(val version: String?) : Dialog
+  data class Itgsa(val capabilities: List<Int>) : AppDetailFeatureAction
   data object LiveUpdateNotification : Dialog
   data object AppProp : AppDetailFeatureAction
   data object InstallSource : AppDetailFeatureAction

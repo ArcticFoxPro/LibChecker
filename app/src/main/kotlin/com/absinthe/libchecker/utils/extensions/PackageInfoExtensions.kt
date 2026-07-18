@@ -11,6 +11,7 @@ import androidx.collection.arrayMapOf
 import androidx.core.content.pm.PackageInfoCompat
 import androidx.core.text.isDigitsOnly
 import com.absinthe.libchecker.R
+import com.absinthe.libchecker.annotation.RECEIVER
 import com.absinthe.libchecker.app.SystemServices
 import com.absinthe.libchecker.compat.ZipFileCompat
 import com.absinthe.libchecker.constant.Constants.ARMV5
@@ -42,6 +43,7 @@ import com.absinthe.libchecker.database.entity.Features
 import com.absinthe.libchecker.domain.app.detail.model.KotlinToolingMetadata
 import com.absinthe.libchecker.domain.app.detail.model.LibStringItem
 import com.absinthe.libchecker.utils.FileUtils
+import com.absinthe.libchecker.utils.IntentFilterUtils
 import com.absinthe.libchecker.utils.OsUtils
 import com.absinthe.libchecker.utils.PackageUtils
 import com.absinthe.libchecker.utils.ShizukuManager
@@ -962,3 +964,49 @@ fun PackageInfo.getSignatureSchemes(): List<String> {
     emptyList()
   }
 }
+
+/**
+ * Check if an app uses ITGSA VoIP Service Kit
+ * @return True if using VoIP Service Kit
+ *
+ */
+fun PackageInfo.isUseVoipServiceKit(foundList: List<String>? = null): Boolean {
+  val file = File(applicationInfo?.sourceDir ?: return false)
+  val realFoundList = foundList ?: PackageUtils.findDexClasses(
+    file, listOf("com.voip.service.*".toClassDefType())
+  )
+  val foundInDex = realFoundList.contains("com.voip.service.*".toClassDefType())
+  return foundInDex
+}
+
+/**
+ * Check if an app uses ITGSA Fair Runtime Memory Mechanism
+ * @return True if using Fair Runtime Memory Mechanism
+ * https://developer.honor.com/cn/docs/adaptation_guide/guides/fair_memory_scheduling
+ */
+fun PackageInfo.isUseFairMemoryMechanism(): Boolean {
+  val sourceDir = applicationInfo?.sourceDir ?: return false
+  val result = runCatching {
+    IntentFilterUtils.parseComponentsFromApk(sourceDir).any { component ->
+        component.type == RECEIVER && component.intentFilters.any { filter ->
+          filter.actions.any { it in listOf("itgsa.intent.action.TRIM", "itgsa.intent.action.KILL") }
+        }
+      }
+  }.getOrDefault(false)
+  return result
+}
+
+/**
+ * Check if an app uses ITGSA Security Paste View
+ * @return True if using Security Paste View
+ * https://developer.honor.com/cn/doc/guides/101687
+ */
+fun PackageInfo.isUseSecurityPasteView(foundList: List<String>? = null): Boolean {
+  val file = File(applicationInfo?.sourceDir ?: return false)
+  val realFoundList = foundList ?: PackageUtils.findDexClasses(
+    file, listOf("com.os.widget.SecurityPasteView".toClassDefType())
+  )
+  val foundInDex = realFoundList.contains("com.os.widget.SecurityPasteView".toClassDefType())
+  return foundInDex
+}
+

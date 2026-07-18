@@ -91,6 +91,25 @@ object FeaturesDialog {
     )
   }
 
+  fun showItgsaDialog(context: Context, capabilities: List<Int>) {
+    val icon = requireNotNull(context.getDrawable(R.drawable.ic_itgsa))
+    val capabilitiesText = capabilities.joinToString("\n") { " • ${context.getString(it)}" }
+    val message = context.getString(R.string.itgsa_details, capabilitiesText)
+    BaseAlertDialogBuilder(context)
+      .setIcon(icon)
+      .setTitle(R.string.itgsa)
+      .setMessage(HtmlCompat.fromHtml(message.replace("\n", "<br>"), HtmlCompat.FROM_HTML_MODE_COMPACT))
+      .setPositiveButton(android.R.string.ok, null)
+      .setNeutralButton(R.string.lib_detail_app_props_tip) { _, _ ->
+        openSourceLink(context, "https://www.itgsa.com")
+      }
+      .show()
+    Telemetry.recordEvent(
+      Constants.Event.FEATURE_DIALOG,
+      mapOf(Telemetry.Param.CONTENT to context.getString(R.string.itgsa))
+    )
+  }
+
   fun showAppPropDialog(activity: FragmentActivity, packageInfo: PackageInfo?) {
     val pi = packageInfo ?: return
 

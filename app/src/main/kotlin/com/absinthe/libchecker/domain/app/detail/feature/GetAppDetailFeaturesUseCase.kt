@@ -4,6 +4,8 @@ import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.graphics.drawable.AdaptiveIconDrawable
+import androidx.annotation.StringRes
+import com.absinthe.libchecker.R
 import com.absinthe.libchecker.app.SystemServices
 import com.absinthe.libchecker.compat.PackageManagerCompat
 import com.absinthe.libchecker.compat.ZipFileCompat
@@ -22,7 +24,10 @@ import com.absinthe.libchecker.utils.extensions.getRxKotlinVersion
 import com.absinthe.libchecker.utils.extensions.isPWA
 import com.absinthe.libchecker.utils.extensions.isPageSizeCompat
 import com.absinthe.libchecker.utils.extensions.isPlayAppSigning
+import com.absinthe.libchecker.utils.extensions.isUseFairMemoryMechanism
 import com.absinthe.libchecker.utils.extensions.isUseKMP
+import com.absinthe.libchecker.utils.extensions.isUseSecurityPasteView
+import com.absinthe.libchecker.utils.extensions.isUseVoipServiceKit
 import com.absinthe.libchecker.utils.extensions.toClassDefType
 import com.absinthe.libchecker.utils.fromJson
 import java.io.File
@@ -116,6 +121,25 @@ class GetAppDetailFeaturesUseCase(
       }
       if (packageInfo.isUseKMP(foundList)) {
         emitFeature(VersionedFeature(Features.KMP))
+      }
+      val itgsaCapabilities = buildList {
+        if (packageInfo.isUseVoipServiceKit(foundList)) {
+          add(ItgsaCapability.VOIP_SERVICE_KIT.key)
+        }
+        if (packageInfo.isUseFairMemoryMechanism()) {
+          add(ItgsaCapability.FAIR_MEMORY_MECHANISM.key)
+        }
+        if (packageInfo.isUseSecurityPasteView(foundList)) {
+          add(ItgsaCapability.SECURITY_PASTE_VIEW.key)
+        }
+      }
+      if (itgsaCapabilities.isNotEmpty()) {
+        emitFeature(
+          VersionedFeature(
+            Features.ITGSA,
+            extras = mapOf("itgsa_capabilities" to itgsaCapabilities.joinToString(","))
+          )
+        )
       }
     }
 
@@ -277,6 +301,8 @@ class GetAppDetailFeaturesUseCase(
     }
     if (dexList.isNotEmpty()) {
       dexList.add("org.jetbrains.compose.*".toClassDefType())
+      dexList.add("com.voip.service.*".toClassDefType())
+      dexList.add("com.os.widget.SecurityPasteView".toClassDefType())
     }
     return if (dexList.isNotEmpty()) {
       PackageUtils.findDexClasses(File(sourceDir), dexList)
@@ -326,6 +352,19 @@ class GetAppDetailFeaturesUseCase(
       }
       .forEach { icons.add(AppIconItem(it, false)) }
     return icons
+  }
+}
+
+enum class ItgsaCapability(
+  val key: String,
+  @StringRes val titleRes: Int
+) {
+  VOIP_SERVICE_KIT("voip_service_kit", R.string.itgsa_voip),
+  FAIR_MEMORY_MECHANISM("fair_memory_mechanism", R.string.itgsa_fair_memory),
+  SECURITY_PASTE_VIEW("security_paste_view", R.string.itgsa_security_paste_view);
+
+  companion object {
+    fun fromKey(key: String): ItgsaCapability? = entries.find { it.key == key }
   }
 }
 
